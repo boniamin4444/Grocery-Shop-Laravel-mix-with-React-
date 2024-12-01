@@ -1,0 +1,421 @@
+import React, { useState, useEffect, useRef } from 'react';
+import axios from 'axios';
+import 'bootstrap/dist/css/bootstrap.min.css';
+
+const OrderPage = () => {
+    const [categories, setCategories] = useState([]);
+    const [products, setProducts] = useState([]);
+    const [filteredProducts, setFilteredProducts] = useState([]);
+    const [selectedCategory, setSelectedCategory] = useState(null);
+    const [orderItems, setOrderItems] = useState(Array(5).fill(null));
+    const [customerName, setCustomerName] = useState('');
+    const [customerAddress, setCustomerAddress] = useState('');
+    const [customerPhone, setCustomerPhone] = useState('');
+    const [paidAmount, setPaidAmount] = useState(0);
+    const [totalQuantity, setTotalQuantity] = useState(0);
+    const [totalPrice, setTotalPrice] = useState(0);
+    const [previousDueAmount, setPreviousDueAmount] = useState(0);
+    const [contextMenu, setContextMenu] = useState(null);
+    const [oldCustomerChecked, setOldCustomerChecked] = useState(false);
+    const [oldCustomers, setOldCustomers] = useState([]);
+    const [selectedOldCustomer, setSelectedOldCustomer] = useState('');
+    const [extraAmountChecked, setExtraAmountChecked] = useState(false);
+    const [extraAmount, setExtraAmount] = useState(0);
+    const [totalWithExtraAmount, setTotalWithExtraAmount] = useState(0); 
+    const contextMenuRef = useRef(null);
+
+    useEffect(() => {
+        fetchCategories();
+        fetchAllProducts();
+        fetchOldCustomers();
+    }, []);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (contextMenuRef.current && !contextMenuRef.current.contains(event.target)) {
+                setContextMenu(null);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [contextMenu]);
+
+    useEffect(() => {
+        calculateTotals();
+    }, [orderItems, extraAmountChecked, extraAmount]);
+
+    const fetchCategories = async () => {
+        try {
+            const response = await axios.get('/api/categories');
+            setCategories(response.data);
+        } catch (error) {
+            console.error("Error fetching categories:", error);
+        }
+    };
+
+    const fetchAllProducts = async () => {
+        try {
+            const response = await axios.get('/api/products');
+            setProducts(response.data);
+            setFilteredProducts(response.data);
+        } catch (error) {
+            console.error("Error fetching products:", error);
+        }
+    };
+
+    const fetchOldCustomers = async () => {
+        try {
+            const response = await axios.get('/api/orders/customers');
+            setOldCustomers(response.data);
+        } catch (error) {
+            console.error("Error fetching old customers:", error);
+        }
+    };
+
+    const handleCategoryChange = (categoryId) => {
+        setSelectedCategory(categoryId);
+        const filtered = products.filter(product => product.category_id === parseInt(categoryId));
+        setFilteredProducts(filtered);
+    };
+
+    const handleProductClick = (product, rowIndex) => {
+        const updatedItems = [...orderItems];
+        updatedItems[rowIndex] = {
+            product_id: product.id,
+            category_id: product.category_id,
+            product_name: product.product_name,
+            quantity: 1,
+            price: product.price,
+        };
+        setOrderItems(updatedItems);
+        setContextMenu(null);
+        setFilteredProducts(filteredProducts.filter(p => p.id !== product.id));
+    };
+
+    const handleRightClickRow = (event, rowIndex) => {
+        event.preventDefault();
+        setContextMenu({ x: event.pageX, y: event.pageY, rowIndex });
+    };
+
+    const updateQuantity = (productId, quantity) => {
+        setOrderItems(orderItems.map(item =>
+            item && item.product_id === productId ? { ...item, quantity: Math.max(1, quantity) } : item
+        ));
+    };
+
+    const calculateTotals = () => {
+        const totalQty = orderItems.reduce((sum, item) => item ? sum + item.quantity : sum, 0);
+        const totalPrc = orderItems.reduce((sum, item) => item ? sum + (item.price * item.quantity) : sum, 0);
+        
+        const totalWithExtra = extraAmountChecked
+            ? totalPrc * (1 - (extraAmount / 100))
+            : totalPrc;
+
+        setTotalQuantity(totalQty);
+        setTotalPrice(totalPrc);
+        setTotalWithExtraAmount(totalWithExtra); 
+    };
+
+    const grandTotal = totalWithExtraAmount + previousDueAmount + paidAmount;
+
+    const handleOldCustomerChange = async (e) => {
+        const selectedCustomerName = e.target.value;
+        setSelectedOldCustomer(selectedCustomerName);
+
+        const selectedCustomer = oldCustomers.find(customer => customer.customer_name === selectedCustomerName);
+        if (selectedCustomer) {
+            setCustomerName(selectedCustomer.customer_name);
+            setCustomerAddress(selectedCustomer.customer_address || '');
+            setCustomerPhone(selectedCustomer.customer_phone || '');
+            
+            try {
+                const response = await axios.get(`/api/orders/customers/${selectedCustomer.customer_number}`);
+                setPreviousDueAmount(response.data.due_amount || 0);
+            } catch (error) {
+                console.error("Error fetching due amount:", error);
+                setPreviousDueAmount(0);
+            }
+        } else {
+            setCustomerName('');
+            setCustomerAddress('');
+            setCustomerPhone('');
+            setPreviousDueAmount(0);
+        }
+    };
+
+    const handleSubmitOrder = async () => {
+        const validItems = orderItems.filter(item => item !== null);
+        
+        // Ensure customer name is present
+        if (!customerName || !validItems.length) {
+            alert('Please fill out the customer name and add at least one product.');
+            return;
+        }
+    
+        // Prepare order data
+        const orderData = {
+            customer_name: customerName,
+            customer_address: customerAddress,
+            customer_phone: customerPhone,
+            products: validItems,
+            paid_amount: paidAmount,
+            extra_amount: extraAmount,  // Send the extra amount if any
+            customer_number: oldCustomerChecked ? 
+                oldCustomers.find(customer => customer.customer_name === selectedOldCustomer)?.customer_number 
+                : null, // Only add the customer_number if old customer is selected
+        };
+    
+        try {
+            // Send the order data to the backend
+            const response = await axios.post('/api/orders', orderData);
+    
+            const newDueAmount = response.data.due_amount;
+            setPreviousDueAmount(newDueAmount);
+    
+            // Reset the form after successful submission
+            resetForm();
+            alert('Order submitted successfully!');
+        } catch (error) {
+            console.error("Error submitting order:", error);
+            handleErrorResponse(error);
+        }
+    };
+    
+
+    const handleErrorResponse = (error) => {
+        if (error.response) {
+            if (error.response.data.errors) {
+                const errorMessages = Object.values(error.response.data.errors).flat().join('\n');
+                alert(`Submission failed:\n${errorMessages}`);
+            } else if (error.response.data.error) {
+                alert(`Error: ${error.response.data.error}`);
+            } else {
+                alert('An unexpected error occurred. Please try again.');
+            }
+        } else {
+            alert('An error occurred while submitting the order. Please try again.');
+        }
+    };
+
+    const resetForm = () => {
+        setOrderItems(Array(5).fill(null));
+        setCustomerName('');
+        setCustomerAddress('');
+        setCustomerPhone('');
+        setPaidAmount(0);
+        setTotalQuantity(0);
+        setTotalPrice(0);
+        setPreviousDueAmount(0);
+        setSelectedOldCustomer('');
+        setOldCustomerChecked(false);
+        setExtraAmountChecked(false); 
+        setExtraAmount(0); 
+        setFilteredProducts(products);
+    };
+
+    const addNewRow = () => {
+        setOrderItems([...orderItems, null]);
+    };
+
+    const handleRemoveProduct = (index) => {
+        const updatedItems = orderItems.filter((_, i) => i !== index);
+        const removedItem = orderItems[index];
+        if (removedItem) {
+            setFilteredProducts([...filteredProducts, removedItem]);
+        }
+        setOrderItems(updatedItems);
+    };
+
+    return (
+        <div className="container mt-4">
+            <h2 className="text-center mb-4 fw-bold">Create Order</h2>
+
+            {/* Old Customer Check */}
+            <div className="mb-3">
+                <label className="form-check-label">
+                    <input
+                        type="checkbox"
+                        className="form-check-input"
+                        checked={oldCustomerChecked}
+                        onChange={(e) => setOldCustomerChecked(e.target.checked)}
+                    />
+                    Old Customer
+                </label>
+            </div>
+
+            {/* Old Customer Dropdown */}
+            {oldCustomerChecked && (
+                <div className="mb-3">
+                    <label className="fw-bold">Select Old Customer:</label>
+                    <select
+                        className="form-select"
+                        value={selectedOldCustomer}
+                        onChange={handleOldCustomerChange}
+                    >
+                        <option value="">Select an Old Customer</option>
+                        {oldCustomers.map(customer => (
+                            <option key={customer.customer_number} value={customer.customer_name}>
+                                {customer.customer_name}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            )}
+
+            {/* Customer Details */}
+            <div className="mb-3">
+                <label className="form-label fw-bold">Customer Name:</label>
+                <input
+                    type="text"
+                    className="form-control"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    readOnly={oldCustomerChecked}
+                />
+            </div>
+            <div className="mb-3">
+                <label className="form-label fw-bold">Customer Address:</label>
+                <input
+                    type="text"
+                    className="form-control"
+                    value={customerAddress}
+                    onChange={(e) => setCustomerAddress(e.target.value)}
+                    readOnly={oldCustomerChecked}
+                />
+            </div>
+            <div className="mb-3">
+                <label className="form-label fw-bold">Customer Phone:</label>
+                <input
+                    type="text"
+                    className="form-control"
+                    value={customerPhone}
+                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    readOnly={oldCustomerChecked}
+                />
+            </div>
+
+            {/* Order Items Table */}
+            <table className="table table-striped shadow">
+                <thead>
+                    <tr>
+                        <th className="fw-bold">Category</th>
+                        <th className="fw-bold">Product</th>
+                        <th className="fw-bold">Quantity</th>
+                        <th className="fw-bold">Price</th>
+                        <th className="fw-bold">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {orderItems.map((item, index) => (
+                        <tr key={index} onContextMenu={(e) => handleRightClickRow(e, index)}>
+                            <td>
+                                <select onChange={(e) => handleCategoryChange(e.target.value)} value={selectedCategory || ''} className="form-select">
+                                    <option value="">Select a Category</option>
+                                    {categories.map((category) => (
+                                        <option key={category.id} value={category.id}>
+                                            {category.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </td>
+                            <td>{item ? item.product_name : "Right-click to select a product"}</td>
+                            <td>
+                                {item ? (
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        className="form-control"
+                                        value={item.quantity}
+                                        onChange={(e) => updateQuantity(item.product_id, parseInt(e.target.value) || 1)}
+                                    />
+                                ) : "N/A"}
+                            </td>
+                            <td>{item ? item.price : "N/A"}</td>
+                            <td>
+                                {item ? (
+                                    <button className="btn btn-danger" onClick={() => handleRemoveProduct(index)}>Remove</button>
+                                ) : null}
+                                {index === orderItems.length - 1 && (
+                                    <button className="btn btn-success" onClick={addNewRow}>+</button>
+                                )}
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
+
+            {/* Context Menu for Product Selection */}
+            {contextMenu && contextMenu.rowIndex !== null && (
+                <div ref={contextMenuRef} style={{
+                    position: 'absolute',
+                    top: contextMenu.y,
+                    left: contextMenu.x,
+                    backgroundColor: 'white',
+                    border: '1px solid #ccc',
+                    boxShadow: '0 8px 16px rgba(0, 0, 0, 0.3)',
+                    zIndex: 1000,
+                }}>
+                    <h4 className="fw-bold">Select a Product</h4>
+                    {filteredProducts.length > 0 ? (
+                        filteredProducts.map((product) => (
+                            <div key={product.id} onClick={() => handleProductClick(product, contextMenu.rowIndex)} style={{ padding: '5px', cursor: 'pointer' }}>
+                                {product.product_name}
+                            </div>
+                        ))
+                    ) : (
+                        <div>No products available</div>
+                    )}
+                </div>
+            )}
+
+            {/* Total and Payment Section */}
+            <p className="fw-bold">Total Quantity: {totalQuantity}</p>
+            <p className="fw-bold">Total Price: {totalPrice}</p>
+            {previousDueAmount > 0 && <p className="fw-bold">Previous Due Amount: {previousDueAmount}</p>}
+            {grandTotal > 0 && <p className="fw-bold">Grand Total With Due And without Discount Price: {grandTotal}</p>}
+
+            {/* Extra Amount Checkbox */}
+            <div className="mb-3">
+                <label className="form-check-label">
+                    <input
+                        type="checkbox"
+                        className="form-check-input"
+                        checked={extraAmountChecked}
+                        onChange={(e) => setExtraAmountChecked(e.target.checked)}
+                    />
+                    Extra Tk
+                </label>
+            </div>
+
+            {/* Extra Amount */}
+            {extraAmountChecked && (
+                <div className="mb-3">
+                    <label className="form-label fw-bold">Discount Amount (%):</label>
+                    <input
+                        type="number"
+                        className="form-control"
+                        value={extraAmount}
+                        onChange={(e) => setExtraAmount(parseFloat(e.target.value) || 0)}
+                    />
+                </div>
+            )}
+
+            {/* Paid Amount */}
+            <div className="mb-3">
+                <label className="form-label fw-bold">Paid Amount:</label>
+                <input
+                    type="number"
+                    className="form-control"
+                    value={paidAmount}
+                    onChange={(e) => setPaidAmount(parseFloat(e.target.value) || 0)}
+                />
+            </div>
+
+            <button className="btn btn-primary" onClick={handleSubmitOrder}>Submit Order</button><br/><br/>
+        </div>
+    );
+};
+
+export default OrderPage;

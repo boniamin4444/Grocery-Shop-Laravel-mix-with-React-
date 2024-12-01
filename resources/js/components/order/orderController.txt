@@ -1,0 +1,171 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Order;
+use App\Models\OrderItem;
+use App\Models\Product;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+
+class OrderController extends Controller
+{
+    public function store(Request $request)
+    {
+        // Log incoming request for debugging
+        Log::info('Incoming order request:', $request->all());
+
+        // Validate incoming request data
+        $validatedData = $request->validate([
+            'customer_name' => 'required|string|max:255',
+            'customer_phone' => 'nullable|string|max:15',
+            'customer_address' => 'nullable|string|max:255',
+            'products' => 'required|array|min:1',
+            'products.*.product_id' => 'required|integer|exists:products,id',
+            'products.*.category_id' => 'required|integer',
+            'products.*.product_name' => 'required|string|max:255',
+            'products.*.quantity' => 'required|integer|min:1',
+            'products.*.price' => 'required|numeric|min:0',
+            'paid_amount' => 'nullable|numeric|min:0',
+            'extra_amount' => 'nullable|numeric|min:0',
+        ]);
+
+        DB::beginTransaction(); // Start the transaction
+
+        try {
+            // Check if the customer already exists based on customer_name and customer_phone
+            $existingOrder = Order::where('customer_name', $validatedData['customer_name'])
+                ->where('customer_phone', $validatedData['customer_phone'])
+                ->first();
+
+            // If the customer exists, reuse the existing customer_number
+            if ($existingOrder) {
+                $customer_number = $existingOrder->customer_number; // Reuse the same customer_number
+            } else {
+                // If the customer is new, generate a unique customer_number
+                $customer_number = $this->generateUniqueCustomerNumber();
+            }
+
+            // Calculate totals
+            $totalQuantity = array_sum(array_column($validatedData['products'], 'quantity'));
+            $totalPrice = array_reduce($validatedData['products'], function ($carry, $item) {
+                return $carry + ($item['price'] * $item['quantity']);
+            }, 0);
+
+            $paidAmount = $validatedData['paid_amount'] ?? 0;
+            $extraAmount = $validatedData['extra_amount'] ?? 0;
+
+            // Calculate extra discount if provided
+            $extraAmountDeduction = ($totalPrice * $extraAmount) / 100;
+            $totalPrice = $totalPrice - $extraAmountDeduction;
+
+            // Calculate due amount
+            $dueAmount = max(0, $totalPrice - $paidAmount);
+
+            // Create the order
+            $order = Order::create([
+                'customer_name' => $validatedData['customer_name'],
+                'customer_phone' => $validatedData['customer_phone'],
+                'customer_address' => $validatedData['customer_address'],
+                'customer_number' => $customer_number,  // Assign the existing or newly generated customer_number
+                'total_quantity' => $totalQuantity,
+                'total_price' => $totalPrice,
+                'due_amount' => $dueAmount,
+                'paid_amount' => $paidAmount,
+                'extra_amount' => $extraAmount,
+            ]);
+
+            // Create order items and update stock
+            foreach ($validatedData['products'] as $productData) {
+                // Check stock before creating the order item
+                $product = Product::find($productData['product_id']);
+                
+                if ($product && $product->stock_amount >= $productData['quantity']) {
+                    // Decrease the stock
+                    $product->stock_amount -= $productData['quantity'];
+                    $product->save();
+
+                    // Create the order item
+                    OrderItem::create([
+                        'order_id' => $order->id,
+                        'product_id' => $productData['product_id'],
+                        'category_id' => $productData['category_id'],
+                        'product_name' => $productData['product_name'],
+                        'quantity' => $productData['quantity'],
+                        'price' => $productData['price'],
+                    ]);
+                } else {
+                    throw new \Exception("Not enough stock for product: {$productData['product_name']}");
+                }
+            }
+
+            // Commit the transaction if everything is fine
+            DB::commit();
+
+            return response()->json(['order' => $order, 'message' => 'Order created successfully'], 201);
+        } catch (\Exception $e) {
+            // Log the error message with more context
+            Log::error('Error creating order: ' . $e->getMessage(), ['exception' => $e]);
+
+            // Rollback the transaction if any error occurs
+            DB::rollBack();
+
+            return response()->json(['error' => 'An error occurred while submitting the order. Please try again.'], 500);
+        }
+    }
+
+    private function generateUniqueCustomerNumber()
+    {
+        // Generate a unique customer number between 1000 (4 digits) and 999999 (6 digits)
+        do {
+            $customer_number = rand(1000, 999999);
+        } while (Order::where('customer_number', $customer_number)->exists()); // Check if the number already exists
+
+        return $customer_number;
+    }
+
+    public function getOldCustomers()
+    {
+        $oldCustomers = DB::table('orders')
+            ->select('customer_name', 'customer_number', 'customer_address', 'customer_phone')
+            ->groupBy('customer_name', 'customer_number', 'customer_address', 'customer_phone') // Grouping to ensure unique combinations
+            ->get();
+
+        return response()->json($oldCustomers);
+    }
+
+    public function getDueAmount($customerNumber)
+    {
+        // Fetch all orders for the given customer number
+        $orders = Order::where('customer_number', $customerNumber)->get();
+
+        // Calculate total price and total paid amount
+        $totalPrice = $orders->sum('total_price');
+        $totalPaidAmount = $orders->sum('paid_amount');
+
+        // Calculate due amount
+        $dueAmount = max(0, $totalPrice - $totalPaidAmount);
+
+        return response()->json(['due_amount' => $dueAmount]);
+    }
+
+    public function getProductsByCategory($categoryId)
+    {
+        // Ensure categoryId is valid before querying
+        if (!is_numeric($categoryId)) {
+            return response()->json(['error' => 'Invalid category ID'], 400);
+        }
+
+        $products = Product::where('category_id', $categoryId)->get();
+
+        if ($products->isEmpty()) {
+            return response()->json(['message' => 'No products found for this category'], 404);
+        }
+
+        return response()->json($products);
+    }
+
+    
+}
+

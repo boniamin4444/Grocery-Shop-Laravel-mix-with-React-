@@ -1,0 +1,131 @@
+.app {
+    font-family: Arial, sans-serif;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+.main-container {
+    display: flex;
+    margin-top: 60px;
+    margin-left: 5px;
+    flex: 1;
+}
+
+aside {
+    width: 250px;
+    background-color: #82c2c2;
+    padding: 10px;
+    box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+    position: fixed;
+    top: 60px;
+    bottom: 0;
+    overflow-y: auto;
+    transition: width 0.3s;
+}
+
+aside h3 {
+    margin-top: 0;
+}
+
+aside ul {
+    list-style: none;
+    padding: 0;
+}
+
+aside ul li {
+    margin: 10px 0;
+}
+
+.container {
+    flex: 1;
+    padding: 20px;
+    margin-left: 250px;
+    background-color: #fff;
+    overflow: auto;
+}
+
+main {
+    flex: 1;
+    padding: 20px;
+    margin-left: 10px;
+    background-color: #fff;
+    overflow: auto;
+}
+
+/* Mobile View (max-width: 768px) */
+@media (max-width: 768px) {
+    .main-container {
+        flex-direction: column;
+        margin-top: 60px;
+    }
+
+    aside {
+        width: 0;
+        position: fixed;
+        top: 60px;
+        left: 0;
+        box-shadow: none;
+        padding: 10px;
+        z-index: 999;
+    }
+
+    main {
+        margin-left: 0;
+        padding: 10px;
+    }
+
+    /* Show the sidebar when it's toggled */
+    .aside-open {
+        width: 250px;
+    }
+
+    /* Hide menu icons when sidebar is collapsed */
+    aside ul {
+        display: block;
+    }
+
+    aside.open-menu ul {
+        display: block;
+    }
+
+    .container {
+        margin-left: 0;
+    }
+}
+
+/* Mobile View (max-width: 480px) */
+@media (max-width: 480px) {
+    header {
+        font-size: 18px;
+        height: 50px;
+        line-height: 50px;
+    }
+
+    aside {
+        width: 100%; /* Full width sidebar on mobile */
+        position: relative;
+        top: 0;
+        margin-top: 0;
+        box-shadow: none;
+        padding: 5px;
+    }
+
+    main {
+        padding: 5px;
+        margin-left: 0;
+    }
+
+    aside ul li {
+        margin: 5px 0;
+        font-size: 14px;
+    }
+
+    header {
+        font-size: 16px;
+    }
+
+    main {
+        font-size: 14px;
+    }
+}

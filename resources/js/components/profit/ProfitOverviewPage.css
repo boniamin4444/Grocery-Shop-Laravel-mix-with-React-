@@ -1,0 +1,281 @@
+.container {
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  h1 {
+    font-size: 2.5rem;
+    font-weight: 600;
+  }
+  
+  .btn-outline-primary {
+    border-width: 2px;
+  }
+  
+  .btn-outline-primary.active {
+    background-color: #007bff;
+    color: #fff;
+    border: none;
+  }
+  
+  .chart-container {
+    position: relative;
+    width: 100%;
+    height: 400px;
+    margin-bottom: 20px;
+  }
+  
+  .table {
+    font-size: 1rem;
+  }
+  
+  .table-hover tbody tr:hover {
+    background-color: #e9ecef;
+  }
+  
+  .table-dark th {
+    background-color: #343a40;
+    color: #ffffff;
+  }
+  
+  .table-striped tbody tr:nth-child(odd) {
+    background-color: #f2f2f2;
+  }
+  
+  .text-success {
+    color: #28a745 !important;
+  }
+  
+  .text-danger {
+    color: #dc3545 !important;
+  }
+  
+  /* Add a wave hover effect for the table rows and chart */
+.table-hover tbody tr:hover {
+    background-color: #f1f1f1;
+    transition: all 0.3s ease;
+  }
+  
+  .chart-container {
+    position: relative;
+    height: 400px;
+  }
+  
+  .chart-container:hover {
+    cursor: pointer;
+    transform: scale(1.05);
+    transition: all 0.3s ease-in-out;
+  }
+  
+  /* Add a wave hover effect to chart elements */
+  .chart-container .chartjs-tooltip {
+    background-color: rgba(0,0,0,0.7);
+    transition: all 0.2s ease-in-out;
+  }
+  
+  /* General styles for tables */
+.table-hover tbody tr:hover {
+    background-color: #f1f1f1;
+    transition: all 0.3s ease;
+  }
+  
+  .table-shadow {
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    z-index: 10;
+    transition: all 0.3s ease;
+  }
+  
+  .table-shadow:hover {
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+  }
+  
+  /* Styling for the chart container */
+  .chart-container {
+    position: relative;
+    height: 400px;
+    margin-bottom: 30px;
+  }
+  
+  .total-sales {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    color: white;
+    background-color: rgba(0, 0, 0, 0.6);
+    padding: 10px;
+    border-radius: 5px;
+    font-size: 16px;
+    font-weight: bold;
+  }
+  
+  .total-sales span {
+    display: block;
+    margin-bottom: 5px;
+  }
+  
+  /* Styling for table rows and cells */
+  .table td, .table th {
+    padding: 15px;
+    vertical-align: middle;
+    font-size: 16px;
+  }
+  
+  .table-dark th, .table-dark td {
+    color: #fff;
+  }
+  
+  .table-dark th {
+    background-color: #343a40;
+  }
+  
+  .text-success {
+    color: green;
+  }
+  
+  .text-danger {
+    color: red;
+  }
+  
+  /* Table hover effects */
+  .table-hover tbody tr:hover {
+    background-color: #f1f1f1;
+    cursor: pointer;
+  }
+  
+  /* Button styles for date range filters */
+  .btn-outline-primary {
+    border-color: #007bff;
+    color: #007bff;
+    font-size: 14px;
+  }
+  
+  .btn-outline-primary.active {
+    background-color: #007bff;
+    color: white;
+  }
+
+
+  /* Container for the card-like layout */
+.card-container {
+  background: #f9f9f9;
+  padding: 2rem;
+  border-radius: 10px;
+  box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Style for form inputs */
+.input-custom {
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+}
+
+/* Style for checkboxes */
+.checkbox-custom {
+  border: 2px solid #007bff;
+  border-radius: 5px;
+  transition: border 0.3s ease;
+}
+
+.checkbox-custom:checked {
+  border-color: #28a745;
+}
+
+/* Table row hover effect */
+.table-row-hover:hover {
+  background-color: #f1f1f1;
+}
+
+/* Custom styles for table */
+.custom-table th {
+  background-color: #007bff;
+  color: white;
+}
+
+.custom-table tbody tr:hover {
+  background-color: #f8f9fa;
+}
+
+  
+/* Profil over view by hourly css */
+
+
+/* General Table Styles */
+.table {
+  width: 100%;
+  margin-bottom: 1rem;
+  color: #212529;
+}
+
+.custom-table th, .custom-table td {
+  text-align: center;
+  vertical-align: middle;
+}
+
+/* Checkbox and Input Styles */
+.checkbox-custom {
+  margin-right: 10px;
+}
+
+.input-custom {
+  max-width: 200px;
+  display: inline-block;
+}
+
+/* Card Container */
+.card-container {
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Responsive Styles */
+@media (max-width: 768px) {
+  .card-container {
+      padding: 15px;
+  }
+
+  .filter-options {
+      display: flex;
+      flex-direction: column;
+  }
+
+  .form-check {
+      margin-bottom: 10px;
+  }
+
+  .hourly-options label, 
+  .date-range-options label {
+      font-size: 14px;
+      margin-bottom: 5px;
+  }
+
+  .hourly-options .input-custom,
+  .date-range-options .form-control {
+      width: 100%;
+  }
+
+  .table {
+      font-size: 12px;
+  }
+
+  .table th, .table td {
+      padding: 8px;
+  }
+}
+
+@media (max-width: 576px) {
+  .text-primary {
+      font-size: 18px;
+  }
+
+  .form-check-label {
+      font-size: 14px;
+  }
+
+  .table {
+      font-size: 10px;
+  }
+}

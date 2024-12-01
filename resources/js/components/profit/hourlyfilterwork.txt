@@ -1,0 +1,245 @@
+   public function getProfitOverviewByHourly(Request $request)
+{
+    // Default values
+    $filterBy = $request->get('filterBy', '');  // No filter selected initially
+    $startDate = Carbon::now();
+    $endDate = Carbon::now();
+    
+    // Apply hourly filter
+    if ($filterBy === 'hour') {
+        $hoursAgo = $request->get('hoursAgo', 1); // Default to 1 hour
+        // Log the hoursAgo value to debug
+        \Log::info("Fetching data for hourly filter with hoursAgo: " . $hoursAgo);
+        $startDate = Carbon::now()->subHours($hoursAgo);
+    }
+    
+    // Apply date range filter
+    if ($filterBy === 'date_range') {
+        $startDate = $request->get('startDate') ? Carbon::parse($request->get('startDate')) : Carbon::today();
+        $endDate = $request->get('endDate') ? Carbon::parse($request->get('endDate')) : Carbon::today();
+    }
+
+    // Fetch orders within the specified date range
+    $orders = Order::whereBetween('created_at', [$startDate, $endDate])
+        ->select('total_price', 'total_buying_price')
+        ->get();
+
+    // Log the query data for debugging
+    \Log::info("Fetched orders: " . $orders->count());
+
+    // Calculate total sales and total profit
+    $totalSales = $orders->sum('total_price');
+    $totalBuyingPrice = $orders->sum('total_buying_price');
+    $totalProfit = $totalSales - $totalBuyingPrice;
+
+    return response()->json([
+        'total_sales' => $totalSales,
+        'total_buying_price' => $totalBuyingPrice,
+        'total_profit' => $totalProfit,
+    ]);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+import React, { useState, useEffect } from 'react';
+
+const ProfitOverviewByHourly = () => {
+    const [filterOption, setFilterOption] = useState('');  // No filter selected initially
+    const [startDate, setStartDate] = useState('');
+    const [endDate, setEndDate] = useState('');
+    const [hoursAgo, setHoursAgo] = useState(1);  // Default to 1 hour for hourly filter
+    const [totalSales, setTotalSales] = useState(0);
+    const [totalBuyingPrice, setTotalBuyingPrice] = useState(0);
+    const [totalProfit, setTotalProfit] = useState(0);
+    const [isHourlyChecked, setIsHourlyChecked] = useState(false);
+    const [isDateRangeChecked, setIsDateRangeChecked] = useState(false);
+
+    // Function to fetch profit data from the backend
+    const fetchProfitData = () => {
+        let url = `/api/profit-overview-by-hourly?filterBy=${filterOption}`;
+
+        if (filterOption === 'hour') {
+            url += `&hoursAgo=${hoursAgo}`;
+        } else if (filterOption === 'date_range') {
+            url += `&startDate=${startDate}&endDate=${endDate}`;
+        }
+
+        // Make the API request
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                setTotalSales(data.total_sales);
+                setTotalBuyingPrice(data.total_buying_price);
+                setTotalProfit(data.total_profit);
+            })
+            .catch(error => {
+                console.error('Error fetching data:', error);
+            });
+    };
+
+    // Event handler for changing the filter option (Hourly or Date Range)
+    const handleFilterChange = (event) => {
+        const { name, checked } = event.target;
+
+        if (name === 'hourlyFilter') {
+            // If the hourly checkbox is checked, uncheck the date range checkbox
+            setIsHourlyChecked(checked);
+            setIsDateRangeChecked(false);  // Uncheck date range filter
+            if (checked) {
+                setFilterOption('hour');
+                setStartDate(''); // Clear date range if hourly is checked
+                setEndDate('');
+            } else {
+                if (!isDateRangeChecked) {
+                    setFilterOption(''); // Reset filter if neither is checked
+                }
+            }
+        }
+
+        if (name === 'dateRangeFilter') {
+            // If the date range checkbox is checked, uncheck the hourly checkbox
+            setIsDateRangeChecked(checked);
+            setIsHourlyChecked(false);  // Uncheck hourly filter
+            if (checked) {
+                setFilterOption('date_range');
+                setHoursAgo(1); // Clear hourly filter if date range is checked
+            } else {
+                if (!isHourlyChecked) {
+                    setFilterOption(''); // Reset filter if neither is checked
+                }
+            }
+        }
+    };
+
+    // Event handler for hours input change (when 'hour' filter is selected)
+    const handleHoursChange = (event) => {
+        setHoursAgo(event.target.value);
+    };
+
+    // Event handler for date input changes (when 'date_range' filter is selected)
+    const handleDateChange = (event) => {
+        const { name, value } = event.target;
+        if (name === 'startDate') {
+            setStartDate(value);
+        } else if (name === 'endDate') {
+            setEndDate(value);
+        }
+    };
+
+    // Trigger data fetch when filterOption or any date/hour inputs change
+    useEffect(() => {
+        if (filterOption) {
+            fetchProfitData();
+        }
+    }, [filterOption, startDate, endDate, hoursAgo]);
+
+    return (
+        <div className="container">
+            <h1 className="text-center">Profit Overview</h1>
+
+            {/* Filter Options */}
+            <div className="filter-options">
+                <div className="form-check form-check-inline">
+                    <input
+                        className="form-check-input"
+                        type="checkbox"
+                        name="hourlyFilter"
+                        id="hourlyFilter"
+                        checked={isHourlyChecked}
+                        onChange={handleFilterChange}
+                    />
+                    <label className="form-check-label" htmlFor="hourlyFilter">Hourly Profit</label>
+                </div>
+                <div className="form-check form-check-inline">
+                    <input
+                        className="form-check-input"
+                        type="checkbox"
+                        name="dateRangeFilter"
+                        id="dateRangeFilter"
+                        checked={isDateRangeChecked}
+                        onChange={handleFilterChange}
+                    />
+                    <label className="form-check-label" htmlFor="dateRangeFilter">Date Range Profit</label>
+                </div>
+            </div>
+
+            {/* Hourly Filter Options */}
+            {isHourlyChecked && (
+                <div className="hourly-options">
+                    <label htmlFor="hoursAgo">Enter number of hours:</label>
+                    <input
+                        type="number"
+                        id="hoursAgo"
+                        min="1"
+                        value={hoursAgo}
+                        onChange={handleHoursChange}
+                        className="form-control mb-3"
+                        style={{ width: '150px', display: 'inline' }}
+                    />
+                </div>
+            )}
+
+            {/* Date Range Filter Options */}
+            {isDateRangeChecked && (
+                <div className="date-range-options">
+                    <label htmlFor="startDate">Start Date:</label>
+                    <input
+                        type="date"
+                        id="startDate"
+                        name="startDate"
+                        value={startDate}
+                        onChange={handleDateChange}
+                        className="form-control mb-3"
+                    />
+                    <label htmlFor="endDate">End Date:</label>
+                    <input
+                        type="date"
+                        id="endDate"
+                        name="endDate"
+                        value={endDate}
+                        onChange={handleDateChange}
+                        className="form-control mb-3"
+                    />
+                </div>
+            )}
+
+            {/* Display Total Sales, Buying Price, and Profit */}
+            {filterOption && (
+                <div className="mt-4">
+                    <table className="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Total Sales</th>
+                                <th>Total Buying Price</th>
+                                <th>Total Profit</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>${totalSales.toFixed(2)}</td>
+                                <td>${totalBuyingPrice.toFixed(2)}</td>
+                                <td>${totalProfit.toFixed(2)}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default ProfitOverviewByHourly;

@@ -1,0 +1,231 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Order;
+use App\Models\OrderItem;
+use App\Models\Product;
+use Illuminate\Http\Request;
+use Carbon\Carbon;
+
+class InventoryController extends Controller
+{
+    public function getInventory()
+    {
+        try {
+            $inventory = Product::with('category')
+                ->select('id', 'product_name', 'category_id', 'buying_price', 'price', 'stock_amount')
+                ->get();
+            return response()->json($inventory, 200);
+        } catch (\Exception $e) {
+            return response()->json(['error' => $e->getMessage()], 500);
+        }
+    }
+    
+    public function getOverview()
+    {
+        // Today's Sales Calculation (Paid Orders)
+        $todaySales = Order::whereDate('created_at', Carbon::today())
+            ->where('status', 'paid')
+            ->sum('paid_amount');
+
+        // Total Salesaa Calculation (Paid Orders)
+        $totalSales = Order::where('status', 'paid')
+            ->sum('paid_amount');
+
+        // Sales for Last 3 Days
+        $last3DaysSales = Order::whereDate('created_at', '>=', Carbon::now()->subDays(3))
+            ->where('status', 'paid')
+            ->sum('paid_amount');
+
+        // Sales for Last 7 Days
+        $last7DaysSales = Order::whereDate('created_at', '>=', Carbon::now()->subDays(7))
+            ->where('status', 'paid')
+            ->sum('paid_amount');
+
+        // Sales for Last 15 Days
+        $last15DaysSales = Order::whereDate('created_at', '>=', Carbon::now()->subDays(15))
+            ->where('status', 'paid')
+            ->sum('paid_amount');
+
+        // Sales for Last 1 Month
+        $lastMonthSales = Order::whereDate('created_at', '>=', Carbon::now()->subMonth())
+            ->where('status', 'paid')
+            ->sum('paid_amount');
+
+        // Sales for Last 3 Months
+        $last3MonthsSales = Order::whereDate('created_at', '>=', Carbon::now()->subMonths(3))
+            ->where('status', 'paid')
+            ->sum('paid_amount');
+
+        // Sales for Last 6 Months
+        $last6MonthsSales = Order::whereDate('created_at', '>=', Carbon::now()->subMonths(6))
+            ->where('status', 'paid')
+            ->sum('paid_amount');
+
+        // Sales for Last 1 Year
+        $last1YearSales = Order::whereDate('created_at', '>=', Carbon::now()->subYear())
+            ->where('status', 'paid')
+            ->sum('paid_amount');
+
+        // Today's Profit Calculation (Paid Amount + Due Amount - Total Price)
+        $todayProfit = Order::whereDate('created_at', Carbon::today())
+            ->where('status', 'paid')
+            ->get()
+            ->sum(function($order) {
+                return $order->paid_amount + $order->due_amount - $order->total_price;
+            });
+
+        // Prepare Overview Response
+        $overview = [
+            'total_products' => Product::count(),
+            'total_sales' => $totalSales,
+            'today_sales' => $todaySales,
+            'last_3_days_sales' => $last3DaysSales,
+            'last_7_days_sales' => $last7DaysSales,
+            'last_15_days_sales' => $last15DaysSales,
+            'last_month_sales' => $lastMonthSales,
+            'last_3_months_sales' => $last3MonthsSales,
+            'last_6_months_sales' => $last6MonthsSales,
+            'last_1_year_sales' => $last1YearSales,
+            'today_profit' => $todayProfit,
+        ];
+
+        return response()->json($overview, 200);
+    }
+
+    public function updateStock(Request $request)
+    {
+        // Validate request
+        $request->validate([
+            'product_id' => 'required|exists:products,id',
+            'stock_amount' => 'required|integer|min:0',
+        ]);
+
+        $product = Product::find($request->product_id);
+        $product->stock_amount = $request->stock_amount;
+        $product->save();
+
+        return response()->json(['message' => 'Stock updated successfully'], 200);
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+
+export default function InventoryPage() {
+  const [inventory, setInventory] = useState([]);
+  const [overview, setOverview] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage] = useState(10);
+
+  useEffect(() => {
+    const fetchInventoryData = async () => {
+      try {
+        const [inventoryResponse, overviewResponse] = await Promise.all([
+          axios.get('/api/inventory'),          // Fetching Inventory Data
+          axios.get('/api/inventory-overview'), // Fetching Overview Data
+        ]);
+        setInventory(inventoryResponse.data || []);
+        setOverview(overviewResponse.data || {});
+      } catch (err) {
+        setError('Error fetching data.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchInventoryData();
+  }, []);
+
+  const handlePageChange = (pageNumber) => {
+    if (pageNumber > 0 && pageNumber <= totalPages) setCurrentPage(pageNumber);
+  };
+
+  if (loading) return <p>Loading...</p>;
+  if (error) return <p>{error}</p>;
+
+  // Pagination logic
+  const indexOfLastItem = currentPage * rowsPerPage;
+  const indexOfFirstItem = indexOfLastItem - rowsPerPage;
+  const currentItems = inventory.slice(indexOfFirstItem, indexOfLastItem);
+  const totalPages = Math.ceil(inventory.length / rowsPerPage);
+
+  return (
+    <div style={{ display: 'flex', gap: '20px', padding: '20px' }}>
+      {/* Inventory Table */}
+      <div style={{ flex: 2, border: '1px solid #ddd', padding: '10px', borderRadius: '4px' }}>
+        <h2>Inventory Management</h2>
+        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Product</th>
+              <th>Category</th>
+              <th>Buying Price</th>
+              <th>Selling Price</th>
+              <th>Stock</th>
+            </tr>
+          </thead>
+          <tbody>
+            {currentItems.map((item) => (
+              <tr key={item.id}>
+                <td>{item.id}</td>
+                <td>{item.product_name}</td>
+                <td>{item.category_name}</td>
+                <td>{item.buying_price}</td>
+                <td>{item.price}</td>
+                <td>{item.stock_amount} pcs</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <div style={{ textAlign: 'center' }}>
+          <button disabled={currentPage === 1} onClick={() => handlePageChange(currentPage - 1)}>
+            Previous
+          </button>
+          <span style={{ margin: '0 10px' }}>{`Page ${currentPage} of ${totalPages}`}</span>
+          <button
+            disabled={currentPage === totalPages}
+            onClick={() => handlePageChange(currentPage + 1)}
+          >
+            Next
+          </button>
+        </div>
+      </div>
+
+      {/* Overview Section */}
+      <div style={{ flex: 1, border: '1px solid #ddd', padding: '10px', borderRadius: '4px' }}>
+        <h3>Overview</h3>
+        <p>Total Products: {overview.total_products || 0}</p>
+        <p>Today's Sales: ${overview.today_sales || 0}</p>
+        <p>Total Sales: ${overview.total_sales || 0}</p>
+        <p>Last 3 Days Sales: ${overview.last_3_days_sales || 0}</p>
+        <p>Last 7 Days Sales: ${overview.last_7_days_sales || 0}</p>
+        <p>Last 15 Days Sales: ${overview.last_15_days_sales || 0}</p>
+        <p>Last Month Sales: ${overview.last_month_sales || 0}</p>
+        <p>Last 3 Months Sales: ${overview.last_3_months_sales || 0}</p>
+        <p>Last 6 Months Sales: ${overview.last_6_months_sales || 0}</p>
+        <p>Last 1 Year Sales: ${overview.last_1_year_sales || 0}</p>
+        <p>Today's Profit: ${overview.today_profit || 0}</p>
+      </div>
+    </div>
+  );
+}

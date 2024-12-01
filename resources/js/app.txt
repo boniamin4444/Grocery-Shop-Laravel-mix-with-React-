@@ -1,0 +1,57 @@
+import React, { useState } from 'react';
+import 'bootstrap/dist/css/bootstrap.min.css';
+import ReactDOM from 'react-dom';
+import Header from './components/Header';
+import Sidebar from './components/Sidebar';
+import Category from './components/category/Category';
+import ProductManager from './components/product/ProductManager';
+import OrderPage from './components/order/OrderPage';
+
+import './components/styles.css';
+
+function App() {
+    const [currentPage, setCurrentPage] = useState('Home');
+
+    const handleMenuClick = (page) => {
+        setCurrentPage(page);
+    };
+
+    const renderContent = () => {
+        switch (currentPage) {
+            case 'Category':
+                return <Category />;
+            case 'ProductManager':
+                return <ProductManager />;
+            case 'OrderPage':
+                return <OrderPage />;
+            case 'Home':
+            default:
+                return <h2>Welcome to the Home Page</h2>;
+        }
+    };
+
+    return (
+        <div className="app">
+            <Header />
+            <div className="main-container" style={{ display: 'flex' }}>
+                <Sidebar onMenuClick={handleMenuClick} />
+                <main style={{ 
+                    flex: 1, 
+                    padding: '20px', 
+                    height: 'calc(100vh - 60px)', 
+                    overflowY: 'auto', 
+                    backgroundColor: '#f9f9f9',
+                    boxShadow: 'inset 0 0 10px rgba(0, 0, 0, 0.1)' 
+                }}>
+                    {renderContent()}
+                </main>
+            </div>
+        </div>
+    );
+}
+
+export default App;
+
+if (document.getElementById('app')) {
+    ReactDOM.render(<App />, document.getElementById('app'));
+}
